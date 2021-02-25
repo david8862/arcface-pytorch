@@ -1,20 +1,27 @@
-from __future__ import print_function
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import os
-from data import Dataset
-import torch
-from torch.utils import data
-import torch.nn.functional as F
-from models import *
-import torchvision
-from utils import Visualizer, view_model
-import torch
 import numpy as np
 import random
 import time
-from config import Config
+
+import torch, torchvision
+from torch.utils import data
+#import torch.nn.functional as F
 from torch.nn import DataParallel
 from torch.optim.lr_scheduler import StepLR
-from test import *
+
+from models.resnet import resnet_face18, resnet34, resnet50
+from models.metrics import ArcMarginProduct, AddMarginProduct, SphereProduct
+from models.focal_loss import FocalLoss
+from config.config import Config
+from data.dataset import Dataset
+
+from eval import evaluate
+#from test import get_lfw_list, lfw_test
+
+from utils import view_model
+from utils.visualizer import Visualizer
 
 
 def save_model(model, save_path, name, iter_cnt):
@@ -28,7 +35,9 @@ if __name__ == '__main__':
     opt = Config()
     if opt.display:
         visualizer = Visualizer()
-    device = torch.device("cuda")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.manual_seed(1)
 
     train_dataset = Dataset(opt.train_root, opt.train_list, phase='train', input_shape=opt.input_shape)
     trainloader = data.DataLoader(train_dataset,
@@ -36,8 +45,8 @@ if __name__ == '__main__':
                                   shuffle=True,
                                   num_workers=opt.num_workers)
 
-    identity_list = get_lfw_list(opt.lfw_test_list)
-    img_paths = [os.path.join(opt.lfw_root, each) for each in identity_list]
+    #identity_list = get_lfw_list(opt.lfw_test_list)
+    #img_paths = [os.path.join(opt.lfw_root, each) for each in identity_list]
 
     print('{} train iters per epoch:'.format(len(trainloader)))
 
@@ -54,11 +63,11 @@ if __name__ == '__main__':
         model = resnet50()
 
     if opt.metric == 'add_margin':
-        metric_fc = AddMarginProduct(512, opt.num_classes, s=30, m=0.35)
+        metric_fc = AddMarginProduct(512, opt.num_classes, s=30, m=0.35, device=device)
     elif opt.metric == 'arc_margin':
-        metric_fc = ArcMarginProduct(512, opt.num_classes, s=30, m=0.5, easy_margin=opt.easy_margin)
+        metric_fc = ArcMarginProduct(512, opt.num_classes, s=30, m=0.5, easy_margin=opt.easy_margin, device=device)
     elif opt.metric == 'sphere':
-        metric_fc = SphereProduct(512, opt.num_classes, m=4)
+        metric_fc = SphereProduct(512, opt.num_classes, m=4, device=device)
     else:
         metric_fc = nn.Linear(512, opt.num_classes)
 
@@ -112,9 +121,11 @@ if __name__ == '__main__':
                 start = time.time()
 
         if i % opt.save_interval == 0 or i == opt.max_epoch:
+            os.makedirs(opt.checkpoints_path, exist_ok=True)
             save_model(model, opt.checkpoints_path, opt.backbone, i)
 
         model.eval()
-        acc = lfw_test(model, img_paths, identity_list, opt.lfw_test_list, opt.test_batch_size)
+        #acc = lfw_test(model, img_paths, identity_list, opt.lfw_test_list, opt.test_batch_size)
+        acc, _ = evaluate(model, 'PTH', opt.input_shape[1:], device, opt.lfw_root, opt.lfw_test_list)
         if opt.display:
             visualizer.display_current_results(iters, acc, name='test_acc')

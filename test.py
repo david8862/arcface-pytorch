@@ -1,18 +1,23 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on 18-5-30 下午4:55
 
 @author: ronghuaiyang
 """
-from __future__ import print_function
+#from __future__ import print_function
 import os
-import cv2
-from models import *
-import torch
 import numpy as np
 import time
-from config import Config
+import cv2
+
+import torch
 from torch.nn import DataParallel
+
+from models.resnet import resnet_face18, resnet34, resnet50
+#from models.metrics import ArcMarginProduct, AddMarginProduct, SphereProduct
+#from models.focal_loss import FocalLoss
+from config.config import Config
 
 
 def get_lfw_list(pair_list):
@@ -158,10 +163,13 @@ if __name__ == '__main__':
     elif opt.backbone == 'resnet50':
         model = resnet50()
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.manual_seed(1)
+
     model = DataParallel(model)
     # load_model(model, opt.test_model_path)
     model.load_state_dict(torch.load(opt.test_model_path))
-    model.to(torch.device("cuda"))
+    model.to(device)
 
     identity_list = get_lfw_list(opt.lfw_test_list)
     img_paths = [os.path.join(opt.lfw_root, each) for each in identity_list]

@@ -1,5 +1,11 @@
-from __future__ import print_function
-from __future__ import division
+#!/usr/bin/env python3
+# -*- coding=utf-8 -*-
+#
+# ArcFace, SphereFace and CosFace loss metric function
+# Ported from:
+# https://github.com/ronghuaiyang/arcface-pytorch
+#from __future__ import print_function
+#from __future__ import division
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,13 +23,14 @@ class ArcMarginProduct(nn.Module):
 
             cos(theta + m)
         """
-    def __init__(self, in_features, out_features, s=30.0, m=0.50, easy_margin=False):
+    def __init__(self, in_features, out_features, s=30.0, m=0.50, easy_margin=False, device=torch.device("cuda")):
         super(ArcMarginProduct, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.device = device
         self.s = s
         self.m = m
-        self.weight = Parameter(torch.FloatTensor(out_features, in_features))
+        self.weight = Parameter(torch.FloatTensor(out_features, in_features).to(self.device))
         nn.init.xavier_uniform_(self.weight)
 
         self.easy_margin = easy_margin
@@ -42,8 +49,8 @@ class ArcMarginProduct(nn.Module):
         else:
             phi = torch.where(cosine > self.th, phi, cosine - self.mm)
         # --------------------------- convert label to one-hot ---------------------------
-        # one_hot = torch.zeros(cosine.size(), requires_grad=True, device='cuda')
-        one_hot = torch.zeros(cosine.size(), device='cuda')
+        # one_hot = torch.zeros(cosine.size(), requires_grad=True).to(self.device)
+        one_hot = torch.zeros(cosine.size()).to(self.device)
         one_hot.scatter_(1, label.view(-1, 1).long(), 1)
         # -------------torch.where(out_i = {x_i if condition_i else y_i) -------------
         output = (one_hot * phi) + ((1.0 - one_hot) * cosine)  # you can use torch.where if your torch.__version__ is 0.4
@@ -63,13 +70,14 @@ class AddMarginProduct(nn.Module):
         cos(theta) - m
     """
 
-    def __init__(self, in_features, out_features, s=30.0, m=0.40):
+    def __init__(self, in_features, out_features, s=30.0, m=0.40, device=torch.device("cuda")):
         super(AddMarginProduct, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.device = device
         self.s = s
         self.m = m
-        self.weight = Parameter(torch.FloatTensor(out_features, in_features))
+        self.weight = Parameter(torch.FloatTensor(out_features, in_features).to(self.device))
         nn.init.xavier_uniform_(self.weight)
 
     def forward(self, input, label):
@@ -77,7 +85,7 @@ class AddMarginProduct(nn.Module):
         cosine = F.linear(F.normalize(input), F.normalize(self.weight))
         phi = cosine - self.m
         # --------------------------- convert label to one-hot ---------------------------
-        one_hot = torch.zeros(cosine.size(), device='cuda')
+        one_hot = torch.zeros(cosine.size()).to(self.device)
         # one_hot = one_hot.cuda() if cosine.is_cuda else one_hot
         one_hot.scatter_(1, label.view(-1, 1).long(), 1)
         # -------------torch.where(out_i = {x_i if condition_i else y_i) -------------
@@ -96,24 +104,25 @@ class AddMarginProduct(nn.Module):
 
 
 class SphereProduct(nn.Module):
-    r"""Implement of large margin cosine distance: :
+    r"""Implement of large margin sphere distance: :
     Args:
         in_features: size of each input sample
         out_features: size of each output sample
         m: margin
         cos(m*theta)
     """
-    def __init__(self, in_features, out_features, m=4):
+    def __init__(self, in_features, out_features, m=4, device=torch.device("cuda")):
         super(SphereProduct, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.device = device
         self.m = m
         self.base = 1000.0
         self.gamma = 0.12
         self.power = 1
         self.LambdaMin = 5.0
         self.iter = 0
-        self.weight = Parameter(torch.FloatTensor(out_features, in_features))
+        self.weight = Parameter(torch.FloatTensor(out_features, in_features).to(self.device))
         nn.init.xavier_uniform(self.weight)
 
         # duplication formula
@@ -141,8 +150,9 @@ class SphereProduct(nn.Module):
         NormOfFeature = torch.norm(input, 2, 1)
 
         # --------------------------- convert label to one-hot ---------------------------
-        one_hot = torch.zeros(cos_theta.size())
-        one_hot = one_hot.cuda() if cos_theta.is_cuda else one_hot
+        one_hot = torch.zeros(cos_theta.size()).to(self.device)
+        #one_hot = torch.zeros(cos_theta.size())
+        #one_hot = one_hot.cuda() if cos_theta.is_cuda else one_hot
         one_hot.scatter_(1, label.view(-1, 1), 1)
 
         # --------------------------- Calculate output ---------------------------

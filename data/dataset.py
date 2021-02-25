@@ -1,12 +1,13 @@
-import os
-from PIL import Image
-import torch
-from torch.utils import data
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os, sys
 import numpy as np
-from torchvision import transforms as T
-import torchvision
+from PIL import Image
 import cv2
-import sys
+
+import torch, torchvision
+from torch.utils import data
+from torchvision import transforms as T
 
 
 class Dataset(data.Dataset):
