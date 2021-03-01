@@ -342,3 +342,7 @@ def resnet152(pretrained=False, **kwargs):
 def resnet_face18(use_se=True, **kwargs):
     model = ResNetFace(IRBlock, [2, 2, 2, 2], use_se=use_se, **kwargs)
     return model
+
+def resnet_face34(use_se=True, **kwargs):
+    model = ResNetFace(IRBlock, [3, 4, 6, 3], use_se=use_se, **kwargs)
+    return model
